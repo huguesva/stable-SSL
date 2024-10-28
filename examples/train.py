@@ -4,6 +4,7 @@ This script demonstrates how to launch a run using the stable-SSL library.
 
 import hydra
 import stable_ssl
+import os
 
 
 @hydra.main()

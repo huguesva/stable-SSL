@@ -141,6 +141,8 @@ class LogConfig:
     folder : str, optional
         Path to the folder where logs and checkpoints will be saved.
         Default is the current directory + random hash folder.
+    run : str, optional
+        Identifier for the current run. Default is the current timestamp.
     load_from : str, optional
         Path to a checkpoint from which to load the model, optimizer, and scheduler.
         Default is "ckpt".
@@ -232,7 +234,7 @@ class TrainerConfig:
 
 _MODEL_CONFIGS = {
     "SimCLR": SimCLRConfig,
-    "Barlowtwins": BarlowTwinsConfig,
+    "BarlowTwins": BarlowTwinsConfig,
     "Supervised": BaseModelConfig,
     "VICReg": VICRegConfig,
     "WMSE": WMSEConfig,

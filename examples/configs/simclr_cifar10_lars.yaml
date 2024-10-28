@@ -16,8 +16,8 @@ data:
         kwargs:
           size: 32
           scale:
-            - 0.1
             - 0.2
+            - 1.0
       - name: RandomHorizontalFlip
       - name: SpeckleNoise
         kwargs:
@@ -32,8 +32,8 @@ data:
         kwargs:
           size: 32
           scale:
-            - 0.1
             - 0.2
+            - 1.0
       - name: RandomHorizontalFlip
   test_in:
     name: CIFAR10

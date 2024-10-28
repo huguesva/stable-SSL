@@ -1,0 +1,8 @@
+hydra:
+  launcher:
+    gpus_per_node: 1              # Number of GPUs per node
+    cpus_per_task: 4              # Number of CPU cores per task (adjust based on hardware)
+    mem_per_gpu: 20GB             # Memory allocation per GPU
+    nodes: 1                      # Number of nodes
+    tasks_per_node: 1             # Number of tasks per node (usually set to 1 if one task uses all GPUs)
+    timeout_min: 1440             # Timeout in minutes (set to 24 hours)
