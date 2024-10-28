@@ -10,7 +10,6 @@ from torchvision import transforms
 from torch.utils.data import Dataset
 from torchvision.transforms.functional import to_pil_image
 
-from .sampler import Sampler
 from .augmentations import TransformsConfig
 
 
@@ -123,7 +122,7 @@ class DatasetConfig:
         # )
         if self.num_workers == -1:
             if os.environ.get("SLURM_JOB_ID"):
-                num_workers = os.environ.get("SLURM_JOB_CPUS_PER_NODE", 1)
+                num_workers = int(os.environ.get("SLURM_JOB_CPUS_PER_NODE", 1))
             else:
                 num_workers = os.cpu_count()
             logging.info(
@@ -192,6 +191,21 @@ class DataConfig:
             A dictionary containing dataloaders.
         """
         return {name: d.get_dataloader() for name, d in self.datasets.items()}
+
+
+class Sampler:
+    """Apply a list of transforms to an input and return all outputs."""
+
+    def __init__(self, transforms: list):
+        self.transforms = transforms
+
+    def __call__(self, x):
+        views = []
+        for t in self.transforms:
+            views.append(t(x))
+        if len(self.transforms) == 1:
+            return views[0]
+        return views
 
 
 # def load_dataset(dataset_name, data_path, train=True):
