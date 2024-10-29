@@ -79,7 +79,7 @@ data:
 model:
   name: BarlowTwins
   backbone_model: resnet50
-  projector: 2048-128
+  projector: '8192-8192-8192'
   lambd: 0.0051
 
 optim:
@@ -96,7 +96,7 @@ hardware:
   world_size: 1
 
 log:
-  run: bt_01
+  run: bt_0
   folder: /jobtmp/hvanasse/test
   save_final_model: true
   eval_epoch_freq: 1
