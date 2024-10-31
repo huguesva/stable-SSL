@@ -1,13 +1,11 @@
 from dataclasses import dataclass
-from torchvision.transforms import v2
 import torch
 from PIL import Image
 from io import BytesIO
 import numpy as np
 from scipy.ndimage import zoom as scizoom
-
+from torchvision.transforms import v2
 from torchvision.transforms.functional import InterpolationMode
-
 
 # some are from
 # https://github.com/hendrycks/robustness/blob/master/ImageNet-C/imagenet_c/imagenet_c/corruptions.py
@@ -50,11 +48,13 @@ class TransformsConfig:
 
 
 def get_interpolation_mode(mode_str: str) -> InterpolationMode:
+    """Get the interpolation mode from a string."""
     try:
         return InterpolationMode(mode_str)
     except ValueError:
         raise ValueError(
-            f"{mode_str} is not a valid interpolation mode. Choose from {list(InterpolationMode)}."
+            f"{mode_str} is not a valid interpolation mode. "
+            f"Choose from {list(InterpolationMode)}."
         )
 
 
@@ -85,6 +85,11 @@ class TransformConfig:
         self.name = name
         self.args = args or []
         self.kwargs = kwargs or {}
+
+        if "interpolation" in self.kwargs:
+            self.kwargs["interpolation"] = get_interpolation_mode(
+                self.kwargs["interpolation"]
+            )
 
         if "interpolation" in self.kwargs:
             self.kwargs["interpolation"] = get_interpolation_mode(
@@ -423,6 +428,11 @@ class ZoomBlur(torch.nn.Module):
             np.arange(1, 1.31, 0.03),
         ][self.severity - 1]
 
+        if x.size[0] != 32:
+            # imagenet needs resize & center-crop before corruption
+            x = x.resize((256, 256))
+            x = v2.CenterCrop(224)(x)
+
         x = (np.array(x) / 255.0).astype(np.float32)
         out = np.zeros_like(x)
         for zoom_factor in c:
@@ -456,9 +466,22 @@ class Fog(torch.nn.Module):
             return x
         c = [(1.5, 2), (2.0, 2), (2.5, 1.7), (2.5, 1.5), (3.0, 1.4)][self.severity - 1]
 
+        if x.size[0] == 32:
+            idx = 32
+            mapsize = 32
+        else:
+            idx = 224
+            mapsize = 256
+            x = x.resize((256, 256))
+            x = v2.CenterCrop(224)(x)
         x = np.array(x) / 255.0
         max_val = x.max()
-        x += c[0] * plasma_fractal(wibbledecay=c[1])[:224, :224][..., np.newaxis]
+        x += (
+            c[0]
+            * plasma_fractal(mapsize=mapsize, wibbledecay=c[1])[:idx, :idx][
+                ..., np.newaxis
+            ]
+        )
         x = np.clip(x * max_val / (max_val + c[0]), 0, 1) * 255
         x = Image.fromarray(np.uint8(x))
         return x
@@ -680,7 +703,7 @@ class Pixelate(torch.nn.Module):
         Severity level of the pixelation. Default is 1.
     """
 
-    def __init__(self, size, severity=1):
+    def __init__(self, size=32, severity=1):
         super().__init__()
         self.severity = severity
         self.size = size
@@ -690,6 +713,7 @@ class Pixelate(torch.nn.Module):
         # x: PIL.Image
         #     Needs to be a PIL image in the range (0-255)
         # """
+        self.size = x.size[0] if x.size[0] == 32 else 224  # cifar or imagenet
         if self.severity == 0:
             return x
         c = [0.6, 0.5, 0.4, 0.3, 0.25][self.severity - 1]

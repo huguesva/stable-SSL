@@ -98,7 +98,7 @@ class DatasetConfig:
             transform=Sampler(self.transforms),
         )
 
-    def get_dataloader(self):
+    def get_dataloader(self, world_size=1):
         """Return a DataLoader for the dataset.
 
         Returns
@@ -108,39 +108,55 @@ class DatasetConfig:
         """
         dataset = self.get_dataset()
 
-        # FIXME: handle those cases
-        # if self.config.hardware.world_size > 1:
-        #     sampler = torch.utils.data.distributed.DistributedSampler(
-        #         dataset, shuffle=not train, drop_last=train
-        #     )
-        #     assert self.config.optim.batch_size % self.config.hardware.world_size == 0
-        # else:
-        #     sampler = None
+        if torch.distributed.is_available() and torch.distributed.is_initialized():
+            self.sampler = torch.utils.data.distributed.DistributedSampler(dataset)
 
-        # per_device_batch_size = (
-        #     self.config.optim.batch_size // self.config.hardware.world_size
-        # )
+            if self.batch_size % world_size != 0:
+                logging.warning(
+                    f"Batch size ({self.batch_size}) is not divisible by world size "
+                    f"({world_size}). Setting per-device batch size to "
+                    f"{self.batch_size // world_size}."
+                )
+            per_device_batch_size = max(self.batch_size // world_size, 1)
+
+        else:
+            self.sampler = None
+            per_device_batch_size = self.batch_size
+
+        # Use all available CPUs if num_workers is set to -1.
         if self.num_workers == -1:
             if os.environ.get("SLURM_JOB_ID"):
                 num_workers = int(os.environ.get("SLURM_JOB_CPUS_PER_NODE", 1))
             else:
                 num_workers = os.cpu_count()
+            # the pattern of use is to have n_tasks=n_gpus,
+            # hence all of cpus per task/node are available to gpus.
+            # if torch.distributed.is_available() and \
+            #     torch.distributed.is_initialized():
+            #     num_workers = max(num_workers // world_size, 1)  # workers per GPU
             logging.info(
                 f"Using {num_workers} workers (maximum available) for data loading."
             )
+
         else:
             num_workers = self.num_workers
+
         loader = torch.utils.data.DataLoader(
             dataset,
-            batch_size=self.batch_size,
+            batch_size=per_device_batch_size,
             num_workers=num_workers,
             pin_memory=True,
-            sampler=None,
-            shuffle=self.shuffle,
-            drop_last=self.drop_last,
+            sampler=self.sampler,
+            shuffle=self.shuffle and self.sampler is None,
+            drop_last=self.drop_last and self.sampler is None,
         )
 
         return loader
+
+    @property
+    def sampler(self):
+        """Return the sampler for the dataset."""
+        return self.sampler
 
 
 @dataclass
@@ -182,7 +198,7 @@ class DataConfig:
         """
         return {name: d.get_dataset() for name, d in self.datasets.items()}
 
-    def get_dataloaders(self):
+    def get_dataloaders(self, world_size=1):
         """Get dataloaders for the datasets.
 
         Returns
@@ -190,7 +206,20 @@ class DataConfig:
         dict
             A dictionary containing dataloaders.
         """
-        return {name: d.get_dataloader() for name, d in self.datasets.items()}
+        return {
+            name: d.get_dataloader(world_size=world_size)
+            for name, d in self.datasets.items()
+        }
+
+    @property
+    def train_dataset(self):
+        """Return the batch size for training."""
+        return self.datasets[self.train_on]
+
+    def set_epoch_train_sampler(self, epoch):
+        """Set the epoch for the training sampler."""
+        if self.train_dataset.sampler is not None:
+            self.train_dataset.sampler.set_epoch(epoch)
 
     @property
     def batch_size_train(self):
