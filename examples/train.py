@@ -15,6 +15,7 @@ def main(cfg):
     print("--- Arguments ---")
     print(args)
 
+    stable_ssl.utils.get_gpu_info()
     model = getattr(stable_ssl, args.model.name)(args)  # Create model
     model()  # Call model
 
