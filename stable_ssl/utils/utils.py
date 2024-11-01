@@ -121,7 +121,8 @@ def setup_distributed(args):
         )
     if not torch.distributed.is_initialized():
         torch.distributed.init_process_group(
-            "nccl",
+            # "nccl",
+            "gloo",
             init_method=dist_url,
             rank=dist_env.get("global_rank", 0),
             world_size=world_size,
