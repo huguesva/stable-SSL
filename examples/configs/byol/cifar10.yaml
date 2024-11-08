@@ -7,6 +7,8 @@ hydra:
     gpus_per_node: ${hardware.world_size}
     partition: gpu
     cpus_per_task: 4
+    max_num_timeout: 10
+    timeout_min: 60
 
 data:
   train_on: base

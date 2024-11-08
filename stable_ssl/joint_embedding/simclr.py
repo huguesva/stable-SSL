@@ -50,10 +50,10 @@ class SimCLR(JointEmbeddingModel):
         sim_i_j = torch.diag(sim, N // 2)
         sim_j_i = torch.diag(sim, -N // 2)
 
-        positive_samples = torch.cat((sim_i_j, sim_j_i), dim=0)  # shape (N)
+        positive_samples = torch.cat((sim_i_j, sim_j_i), dim=0)
 
         mask = torch.eye(N, dtype=bool).to(self.this_device)
-        negative_samples = sim[~mask].reshape(N, -1)  # shape (N, N-1)
+        negative_samples = sim[~mask].reshape(N, -1)  # Remove self-similarity.
 
         attraction = -positive_samples.mean()
         repulsion = torch.logsumexp(negative_samples, dim=1).mean()
@@ -68,10 +68,10 @@ class SimCLRConfig(JointEmbeddingConfig):
     Parameters
     ----------
     temperature : float
-        Temperature parameter for the contrastive loss. Default is 0.15.
+        Temperature parameter for the contrastive loss. Default is 0.5.
     """
 
-    temperature: float = 0.15
+    temperature: float = 0.5
 
     def trainer(self):
         return SimCLR

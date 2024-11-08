@@ -51,10 +51,20 @@ class JointEmbeddingModel(BaseModel):
 
     def compute_loss(self):
         embeddings = [self.backbone(view) for view in self.data[0]]
-        loss_backbone = self._compute_backbone_classifier_loss(*embeddings)
+        loss_backbone = sum(
+            [
+                F.cross_entropy(self.backbone_classifier(embed.detach()), self.data[1])
+                for embed in embeddings
+            ]
+        )
 
         projections = [self.projector(embed) for embed in embeddings]
-        loss_proj = self._compute_projector_classifier_loss(*projections)
+        loss_proj = sum(
+            [
+                F.cross_entropy(self.projector_classifier(proj.detach()), self.data[1])
+                for proj in projections
+            ]
+        )
         loss_ssl = self.compute_ssl_loss(*projections)
 
         if self.global_step % self.config.log.log_every_step == 0:
@@ -72,20 +82,6 @@ class JointEmbeddingModel(BaseModel):
     @abstractmethod
     def compute_ssl_loss(self, *projections):
         raise NotImplementedError
-
-    def _compute_backbone_classifier_loss(self, *embeddings):
-        losses = [
-            F.cross_entropy(self.backbone_classifier(embed.detach()), self.data[1])
-            for embed in embeddings
-        ]
-        return sum(losses)
-
-    def _compute_projector_classifier_loss(self, *projections):
-        losses = [
-            F.cross_entropy(self.projector_classifier(proj.detach()), self.data[1])
-            for proj in projections
-        ]
-        return sum(losses)
 
 
 @dataclass
@@ -123,31 +119,6 @@ class SelfDistillationModel(JointEmbeddingModel):
 
         deactivate_requires_grad(self.backbone_target)
         deactivate_requires_grad(self.projector_target)
-
-    def compute_loss(self):
-        embeddings = [self.backbone(view) for view in self.data[0]]
-        loss_backbone = self._compute_backbone_classifier_loss(*embeddings)
-
-        projections = [self.projector(embed) for embed in embeddings]
-        loss_proj = self._compute_projector_classifier_loss(*projections)
-
-        with torch.no_grad():
-            projections_target = [
-                self.projector_target(self.backbone_target(view))
-                for view in self.data[0]
-            ]
-        loss_ssl = self.compute_ssl_loss(projections, projections_target)
-
-        self.log(
-            {
-                "train/loss_ssl": loss_ssl.item(),
-                "train/loss_backbone_classifier": loss_backbone.item(),
-                "train/loss_projector_classifier": loss_proj.item(),
-            },
-            commit=False,
-        )
-
-        return loss_ssl + loss_proj + loss_backbone
 
     def before_train_step(self):
         # Update the target parameters as EMA of the online model parameters.

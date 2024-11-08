@@ -31,32 +31,38 @@ class BYOL(SelfDistillationModel):
         sizes = [self.config.model.projector[-1]] + self.config.model.predictor
         self.predictor = mlp(sizes)
 
-    def compute_ssl_loss(self, projections, projections_target):
+    def compute_ssl_loss(self, z_0, z_1):
         """Compute the loss of the BYOL model.
 
         Parameters
         ----------
-        projections : list of torch.Tensor
-            Projections of the different augmented views from the online network.
-        projections_target : list of torch.Tensor
-            Projections of the corresponding augmented views from the target network.
+        z_0 : torch.Tensor
+            Latent representation of the first augmented view of the batch.
+        z_1 : torch.Tensor
+            Latent representation of the second augmented view of the batch.
 
         Returns
         -------
         float
             The computed loss.
         """
-        if len(projections) > 2 or len(projections_target) > 2:
-            logging.warning(
-                "BYOL only supports two views. Only the first two views will be used."
-            )
+        # BYOL relies on a predictor network on top of the projector.
+        prediction_0 = self.predictor(z_0)
+        prediction_1 = self.predictor(z_1)
 
-        predictions = [self.predictor(proj) for proj in projections]
+        # Construct target with the target ('teacher') network.
+        with torch.no_grad():
+            projection_target_0 = self.projector_target(
+                self.backbone_target(self.data[0][0])
+            )
+            projection_target_1 = self.projector_target(
+                self.backbone_target(self.data[0][1])
+            )
 
         sim = torch.nn.CosineSimilarity(dim=1)
         return -0.5 * (
-            sim(predictions[0], projections_target[1]).mean()
-            + sim(predictions[1], projections_target[0]).mean()
+            sim(prediction_0, projection_target_1).mean()
+            + sim(prediction_1, projection_target_0).mean()
         )
 
 
