@@ -41,38 +41,38 @@ class DINO(SelfDistillationModel):
             The computed loss.
         """
 
-        def compute_ssl_loss(self, projections):
-            # Construct target with the target ('teacher') network.
-            with torch.no_grad():
-                global_views = self.data[0][:2]  # First two views are global views.
-                projections_target = [
-                    self.projector_target(self.backbone_target(view))
-                    for view in global_views
-                ]
+        # def compute_ssl_loss(self, projections):
+        #     # Construct target with the target ('teacher') network.
+        #     with torch.no_grad():
+        #         global_views = self.data[0][:2]  # First two views are global views.
+        #         projections_target = [
+        #             self.projector_target(self.backbone_target(view))
+        #             for view in global_views
+        #         ]
 
-            if epoch < self.warmup_teacher_temp_epochs:
-                teacher_temp = self.teacher_temp_schedule[epoch]
-            else:
-                teacher_temp = self.teacher_temp
+        #     if epoch < self.warmup_teacher_temp_epochs:
+        #         teacher_temp = self.teacher_temp_schedule[epoch]
+        #     else:
+        #         teacher_temp = self.teacher_temp
 
-            teacher_out = torch.stack(teacher_out)
-            t_out = F.softmax((teacher_out - self.center) / teacher_temp, dim=-1)
+        #     teacher_out = torch.stack(teacher_out)
+        #     t_out = F.softmax((teacher_out - self.center) / teacher_temp, dim=-1)
 
-            student_out = torch.stack(student_out)
-            s_out = F.log_softmax(student_out / self.student_temp, dim=-1)
+        #     student_out = torch.stack(student_out)
+        #     s_out = F.log_softmax(student_out / self.student_temp, dim=-1)
 
-            # Calculate feature similarities, ignoring the diagonal
-            # b = batch_size, t = n_views_teacher, s = n_views_student, d = output_dim
-            loss = -torch.einsum("tbd,sbd->ts", t_out, s_out)
-            loss.fill_diagonal_(0)
+        #     # Calculate feature similarities, ignoring the diagonal
+        #     # b = batch_size, t = n_views_teacher, s = n_views_student, d = output_dim
+        #     loss = -torch.einsum("tbd,sbd->ts", t_out, s_out)
+        #     loss.fill_diagonal_(0)
 
-            # Number of loss terms, ignoring the diagonal
-            n_terms = loss.numel() - loss.diagonal().numel()
-            batch_size = teacher_out.shape[1]
+        #     # Number of loss terms, ignoring the diagonal
+        #     n_terms = loss.numel() - loss.diagonal().numel()
+        #     batch_size = teacher_out.shape[1]
 
-            loss = loss.sum() / (n_terms * batch_size)
+        #     loss = loss.sum() / (n_terms * batch_size)
 
-            # Update the center used for the teacher output
-            self.update_center(teacher_out)
+        #     # Update the center used for the teacher output
+        #     self.update_center(teacher_out)
 
-            return loss
+        #     return loss
