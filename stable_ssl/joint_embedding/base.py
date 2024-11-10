@@ -50,34 +50,42 @@ class JointEmbeddingModel(BaseModel):
         return self.backbone_classifier(self.backbone(x))
 
     def compute_loss(self):
+        # Compute the latent representations from the backbone.
         embeddings = [self.backbone(view) for view in self.data[0]]
-        loss_backbone = sum(
+
+        # Compute the classification loss to train the backbone linear probe.
+        loss_backbone_class = sum(
             [
                 F.cross_entropy(self.backbone_classifier(embed.detach()), self.data[1])
                 for embed in embeddings
             ]
         )
 
+        # Compute the projections used in the SSL loss.
         projections = [self.projector(embed) for embed in embeddings]
-        loss_proj = sum(
+
+        # Compute the classification loss to train the projector linear probe (optional).
+        loss_proj_class = sum(
             [
                 F.cross_entropy(self.projector_classifier(proj.detach()), self.data[1])
                 for proj in projections
             ]
         )
+
+        # Compute the SSL loss to train the backbone and projector.
         loss_ssl = self.compute_ssl_loss(*projections)
 
         if self.global_step % self.config.log.log_every_step == 0:
             self.log(
                 {
                     "train/loss_ssl": loss_ssl.item(),
-                    "train/loss_backbone_classifier": loss_backbone.item(),
-                    "train/loss_projector_classifier": loss_proj.item(),
+                    "train/loss_backbone_classifier": loss_backbone_class.item(),
+                    "train/loss_projector_classifier": loss_proj_class.item(),
                 },
                 commit=False,
             )
 
-        return loss_ssl + loss_proj + loss_backbone
+        return loss_ssl + loss_proj_class + loss_backbone_class
 
     @abstractmethod
     def compute_ssl_loss(self, *projections):
@@ -121,7 +129,7 @@ class SelfDistillationModel(JointEmbeddingModel):
         deactivate_requires_grad(self.projector_target)
 
     def before_train_step(self):
-        # Update the target parameters as EMA of the online model parameters.
+        """Update the target parameters as EMA of the online model parameters."""
         update_momentum(
             self.backbone, self.backbone_target, m=self.config.model.momentum
         )
