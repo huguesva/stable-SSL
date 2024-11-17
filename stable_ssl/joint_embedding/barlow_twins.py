@@ -28,7 +28,6 @@ class BarlowTwins(JointEmbeddingModel):
         super().initialize_modules()
         self.bn = torch.nn.BatchNorm1d(self.config.model.projector[-1])
 
-    @gather_processes
     def compute_ssl_loss(self, z_i, z_j):
         # Empirical cross-correlation matrix.
         c = self.bn(z_i).T @ self.bn(z_j)
@@ -49,11 +48,11 @@ class BarlowTwinsConfig(JointEmbeddingConfig):
 
     Parameters
     ----------
-    lambd : str
+    lambd : float
         Lambda parameter for the off-diagonal loss. Default is 0.1.
     """
 
-    lambd: str = 0.1
+    lambd: float = 0.1
 
     def trainer(self):
         return BarlowTwins

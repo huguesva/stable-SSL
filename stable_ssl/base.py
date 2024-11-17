@@ -51,7 +51,7 @@ class ModelConfig:
 
     Parameters
     ----------
-    model : str
+    name : str
         Type of model to use. Default is "Supervised".
     backbone_model : str
         Neural network architecture to use for the backbone. Default is "resnet50".
@@ -75,9 +75,9 @@ class BaseModel(torch.nn.Module):
 
     Parameters
     ----------
-    config : TrainerConfig
+    config : GlobalConfig
         Parameters for BaseModel organized in groups.
-        For details, see the `TrainerConfig` class in `config.py`.
+        For details, see the `GlobalConfig` class in `config.py`.
     """
 
     def __new__(cls, config, *args, **kwargs):
@@ -645,6 +645,7 @@ class BaseModel(torch.nn.Module):
         else:
             self.epoch = 0
 
+    # TODO: this is too hardcoded, should be more flexible
     def _initialize_optimizer(self):
         if self.config.optim.optimizer == "Adam":
             optimizer = torch.optim.Adam(

@@ -9,9 +9,9 @@ class Supervised(BaseModel):
 
     Parameters
     ----------
-    config : BaseModelConfig
+    config : GlobalConfig
         Parameters for BaseModel organized in groups.
-        For details, see the `BaseModelConfig` class in `config.py`.
+        For details, see the `GlobalConfig` class in `config.py`.
     """
 
     def initialize_modules(self):
@@ -28,8 +28,7 @@ class Supervised(BaseModel):
 
     def compute_loss(self):
         predictions = [self.forward(view) for view in self.data[0]]
-        losses = [F.cross_entropy(pred, self.data[1]) for pred in predictions]
-        loss = sum(losses)
+        loss = sum([F.cross_entropy(pred, self.data[1]) for pred in predictions])
 
         if self.global_step % self.config.log.log_every_step == 0:
             self.log(
